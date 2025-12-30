@@ -70,8 +70,40 @@ class AstroidAnalyzer(LanguageAnalyzerBase):
         self.reset()
         try:
             filename = os.path.basename(file_path) if file_path else ""
-            
-            tree = astroid.parse(code)
+
+            # astroidでパース（問題のある文字がある場合は正規化して再試行）
+            try:
+                tree = astroid.parse(code)
+            except Exception as parse_error:
+                # astroidのパースに失敗した場合、問題のある文字を正規化して再試行
+                print(f"astroidパースエラー（正規化を試行）: {parse_error}")
+                import re
+
+                def normalize_comments(match):
+                    """コメント内の問題のある文字を正規化"""
+                    comment = match.group(0)
+                    comment = comment.replace('。', '.')
+                    comment = comment.replace('、', ',')
+                    comment = comment.replace('　', ' ')
+                    return comment
+
+                def normalize_docstring(match):
+                    """docstring内の問題のある文字を正規化"""
+                    docstring = match.group(0)
+                    docstring = docstring.replace('。', '.')
+                    docstring = docstring.replace('、', ',')
+                    docstring = docstring.replace('　', ' ')
+                    return docstring
+
+                # 単一行コメントを正規化
+                normalized_code = re.sub(r'#.*$', normalize_comments, code, flags=re.MULTILINE)
+
+                # docstringも正規化（三重引用符内）
+                normalized_code = re.sub(r'""".*?"""', normalize_docstring, normalized_code, flags=re.DOTALL)
+                normalized_code = re.sub(r"'''.*?'''", normalize_docstring, normalized_code, flags=re.DOTALL)
+
+                tree = astroid.parse(normalized_code)
+                print(f"正規化後にパース成功: {filename}")
             
             # モジュールレベルのドキュメント文字列
             module_docstring = tree.doc_node.value if tree.doc_node else None

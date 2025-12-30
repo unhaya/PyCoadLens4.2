@@ -20,3 +20,11 @@ Thumbs.db
 
 # Local config
 config/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Metadata
+# [メタデータ].txt

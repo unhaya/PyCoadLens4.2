@@ -20,7 +20,7 @@ class ToolbarManager:
         """
         self.main_window = main_window
         self.toolbar_frame = main_window.toolbar_frame
-        self.icon_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icon")
+        self.icon_dir = os.path.join(os.path.dirname(__file__), "icon")
         self.custom_buttons = []
         self.button_images = []
 
@@ -50,8 +50,8 @@ class ToolbarManager:
         reanalyze_btn_frame = ttk.Frame(self.toolbar_frame)
         reanalyze_btn_frame.pack(side="left", padx=5)
 
-        # アイコン画像
-        with Image.open(os.path.join(self.icon_dir, "refresh.png")) as reanalyze_icon:
+        # アイコン画像（analyze.pngを再分析ボタンにも使用）
+        with Image.open(os.path.join(self.icon_dir, "analyze.png")) as reanalyze_icon:
             reanalyze_icon_image = ImageTk.PhotoImage(reanalyze_icon.resize((24, 24)))
 
         # アイコンラベル

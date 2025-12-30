@@ -189,8 +189,47 @@ class AnalysisHandler:
                     # ファイル文字数を取得
                     file_char_count = len(code)
 
-                    # astroidでモジュールをパース
-                    module = astroid.parse(code)
+                    # astroidでモジュールをパース（問題のある文字を正規化）
+                    try:
+                        module = astroid.parse(code)
+                    except Exception as parse_error:
+                        # astroidのパースに失敗した場合、問題のある文字を正規化して再試行
+                        print(f"astroidパースエラー: {file_path} - {parse_error}")
+                        try:
+                            # 全角句読点など問題になりやすい文字を半角に置換
+                            normalized_code = code
+                            # コメント内の全角文字は問題になることがあるため、
+                            # コメント行を抽出して正規化
+                            import re
+
+                            def normalize_comments(match):
+                                """コメント内の問題のある文字を正規化"""
+                                comment = match.group(0)
+                                # 全角句読点を半角に変換
+                                comment = comment.replace('。', '.')
+                                comment = comment.replace('、', ',')
+                                comment = comment.replace('　', ' ')
+                                return comment
+
+                            # 単一行コメントを正規化
+                            normalized_code = re.sub(r'#.*$', normalize_comments, code, flags=re.MULTILINE)
+
+                            # docstringも正規化（三重引用符内）
+                            def normalize_docstring(match):
+                                docstring = match.group(0)
+                                docstring = docstring.replace('。', '.')
+                                docstring = docstring.replace('、', ',')
+                                docstring = docstring.replace('　', ' ')
+                                return docstring
+
+                            normalized_code = re.sub(r'""".*?"""', normalize_docstring, normalized_code, flags=re.DOTALL)
+                            normalized_code = re.sub(r"'''.*?'''", normalize_docstring, normalized_code, flags=re.DOTALL)
+
+                            module = astroid.parse(normalized_code)
+                            print(f"正規化後にパース成功: {file_path}")
+                        except Exception as retry_error:
+                            print(f"正規化後もパース失敗、スキップ: {file_path} - {retry_error}")
+                            continue
                     module_name = os.path.basename(file_path).replace('.py', '')
                     module_nodes[module_name] = module
 
