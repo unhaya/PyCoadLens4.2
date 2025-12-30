@@ -1,0 +1,6 @@
+cd /d D:
+cd D:\OneDrive\In the middle of an update\code_analysis\PyCoadLens4.0
+
+python "PyCodeLens4.0.py"
+
+

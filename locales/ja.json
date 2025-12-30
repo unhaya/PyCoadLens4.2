@@ -1,0 +1,147 @@
+{
+  "app": {
+    "title": "コード解析ツール",
+    "file": "ファイル",
+    "edit": "編集",
+    "view": "表示",
+    "help": "ヘルプ"
+  },
+  "buttons": {
+    "analyze": "解析",
+    "copy": "コピー",
+    "clear": "クリア",
+    "import": "インポート",
+    "run": "実行",
+    "save": "保存",
+    "save_button_with_shortcut": "保存 (Ctrl+S)",
+    "save_as_button": "名前を付けて保存",
+    "close_button": "閉じる",
+    "delete_button": "削除",
+    "new_prompt_button": "新規作成"
+  },
+  "ui": {
+    "messages": {
+      "directory_loaded": "ディレクトリ '{0}' を読み込みました。",
+      "select_file": "解析したいPythonファイルを選択して、[解析]ボタンをクリックしてください。",
+      "hint": "ヒント: Ctrl+クリックでファイルやディレクトリを解析から除外できます。\nダブルクリックでファイルを選択できます。",
+      "analysis_complete": "解析が完了しました",
+      "error_occurred": "エラーが発生しました",
+      "no_tabs_selected": "コピーするタブが選択されていません。",
+      "copy_success": "選択したタブの内容をクリップボードにコピーしました。",
+      "reload_directory": "設定を適用するには、現在のディレクトリを再読み込みする必要があります。続行しますか？",
+      "save_changes": "未保存の変更があります。\n保存しますか？",
+      "analysis_error": "ファイルの解析中にエラーが発生しました:\n{0}",
+      "no_files": "解析対象のファイルがありません。",
+      "copy_info_message": "エラー内容をクリップボードにコピーしました。",
+      "save_info_message": "エラー内容を {0} に保存しました。",
+      "save_error_message": "ファイルの保存中にエラーが発生しました：\n{0}",
+      "info_processing": "現在処理中です。しばらくお待ちください。",
+      "confirm_many_items": "このフォルダには{0}個の項目が含まれています。\n処理に時間がかかる可能性があります。続行しますか？",
+      "progress_processing_items": "項目を処理中... ({0}/{1})",
+      "info_cannot_open": "'{0}'を開けませんでした。",
+      "progress_loading_structure": "ディレクトリ構造を読み込み中...",
+      "info_display_limit": "表示項目数が制限に達しました ({0}項目)。\n全ての項目が表示されているわけではありません。",
+      "error_loading_directory": "ディレクトリの読み込み中にエラーが発生しました: {0}",
+      "confirm_discard_changes": "現在のプロンプトに未保存の変更があります。\n変更を破棄しますか？",
+      "warning_empty_name": "プロンプト名を入力してください。",
+      "error_save_failed": "プロンプトの保存に失敗しました。",
+      "save_as_message": "新しいプロンプト名を入力してください:",
+      "confirm_delete_prompt": "プロンプト '{0}' を削除しますか？\nこの操作は元に戻せません。",
+      "info_cannot_delete_last": "最後のプロンプトは削除できません。"
+    },
+    "status": {
+      "ready": "準備完了",
+      "char_count": "文字数: 0",
+      "char_count_value": "文字数: {0}",
+      "current_directory": "ディレクトリ: {0}",
+      "file": "ファイル: {0}",
+      "directory": "ディレクトリ: {0}",
+      "status_unchanged": "未変更",
+      "status_modified": "変更あり*",
+      "status_saved": "保存済み",
+      "status_included": "✓ 含む",
+      "status_excluded": "✗ 除外"
+    },
+    "options": {
+      "label": "表示オプション:",
+      "imports": "インポート文",
+      "docstrings": "説明文",
+      "skip_exe": "EXEフォルダスキップ"
+    },
+    "tabs": {
+      "analysis": "解析結果",
+      "extended": "拡張解析",
+      "json": "JSON出力",
+      "prompt": "プロンプト入力"
+    },
+    "labels": {
+      "analysis": "解析結果:",
+      "extended": "astroidによる拡張解析結果:",
+      "json": "JSON形式のコード構造:",
+      "file_folder": "file/folder",
+      "error_content_label": "エラー内容:",
+      "prompt_list": "プロンプト一覧",
+      "prompt_name_column": "プロンプト名",
+      "prompt_name_label": "プロンプト名:",
+      "prompt_content_label": "プロンプト内容:"
+    },
+    "tab_selection": {
+      "label": "コピーするタブ:"
+    },
+    "context_menu": {
+      "select_all": "すべて選択",
+      "copy": "コピー",
+      "paste": "貼り付け",
+      "cut": "切り取り",
+      "open_explorer": "エクスプローラーで開く",
+      "open_default": "デフォルトアプリで開く",
+      "new_prompt": "新規作成",
+      "duplicate_prompt": "複製",
+      "delete_prompt": "削除"
+    },
+    "tree_view": {
+      "include": "解析に含める",
+      "exclude": "解析から除外",
+      "open_in_explorer": "エクスプローラーで開く",
+      "open_with_app": "デフォルトアプリで開く"
+    },
+    "language": {
+      "japanese": "日本語",
+      "english": "English"
+    },
+    "dialogs": {
+      "info_title": "情報",
+      "error_title": "エラー",
+      "confirm_title": "確認",
+      "warning_title": "警告",
+      "copy_info_title": "コピー",
+      "save_info_title": "保存",
+      "save_error_title": "保存エラー",
+      "progress_title": "処理中",
+      "progress_loading_directory": "ディレクトリを読み込み中",
+      "save_error_log_title": "エラーログの保存",
+      "save_as_title": "名前を付けて保存"
+    },
+    "tooltips": {
+      "new_prompt_tooltip": "新規プロンプト作成",
+      "delete_prompt_tooltip": "選択したプロンプトを削除"
+    },
+    "file_types": {
+      "text_file": "テキストファイル",
+      "all_files": "すべてのファイル"
+    }
+  },
+  "language": {
+    "changed_title": "言語変更",
+    "changed_message": "言語を変更しました。一部の変更はアプリケーションの再起動後に適用されます。",
+    "restart_title": "再起動が必要",
+    "restart_message": "言語設定を完全に適用するには、アプリケーションの再起動が必要です。"
+  },
+  "templates": {
+    "prompt_template": "# [ファイル/ディレクトリ名]の解析プロンプト\n\n    以下のコード構造を分析して：\n    [解析結果]\n\n    ## 質問/指示\n    [ここに質問や指示を入力してください]\n\n    ## 特記事項\n    [特記事項があれば記入してください]\n    "
+  },
+  "names": {
+    "new_prompt_name": "新規プロンプト",
+    "untitled_prompt": "無題のプロンプト"
+  }
+}

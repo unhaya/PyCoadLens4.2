@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Database
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# Windows
+desktop.ini
+Thumbs.db
+
+# Logs
+*.log
+
+# Local config
+config/

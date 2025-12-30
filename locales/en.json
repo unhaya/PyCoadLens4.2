@@ -1,0 +1,147 @@
+{
+  "app": {
+    "title": "Code Analysis Tool",
+    "file": "File",
+    "edit": "Edit",
+    "view": "View",
+    "help": "Help"
+  },
+  "buttons": {
+    "analyze": "Analyze",
+    "copy": "Copy",
+    "clear": "Clear",
+    "import": "Import",
+    "run": "Run",
+    "save": "Save",
+    "save_button_with_shortcut": "Save (Ctrl+S)",
+    "save_as_button": "Save As",
+    "close_button": "Close",
+    "delete_button": "Delete",
+    "new_prompt_button": "New"
+  },
+  "ui": {
+    "messages": {
+      "directory_loaded": "Directory '{0}' loaded.",
+      "select_file": "Select a Python file to analyze, then click the [Analyze] button.",
+      "hint": "Hint: Ctrl+click to exclude files or directories from analysis.\nDouble-click to select a file.",
+      "analysis_complete": "Analysis complete",
+      "error_occurred": "An error occurred",
+      "no_tabs_selected": "No tabs selected for copying.",
+      "copy_success": "Selected tab content copied to clipboard.",
+      "reload_directory": "To apply settings, the current directory needs to be reloaded. Continue?",
+      "save_changes": "There are unsaved changes.\nDo you want to save?",
+      "analysis_error": "An error occurred while analyzing the file:\n{0}",
+      "no_files": "No files to analyze.",
+      "copy_info_message": "Error content copied to clipboard.",
+      "save_info_message": "Error content saved to {0}.",
+      "save_error_message": "An error occurred while saving the file:\n{0}",
+      "info_processing": "Currently processing. Please wait.",
+      "confirm_many_items": "This folder contains {0} items.\nProcessing might take some time. Continue?",
+      "progress_processing_items": "Processing items... ({0}/{1})",
+      "info_cannot_open": "Could not open '{0}'.",
+      "progress_loading_structure": "Loading directory structure...",
+      "info_display_limit": "Display limit reached ({0} items).\nNot all items are displayed.",
+      "error_loading_directory": "An error occurred while loading the directory: {0}",
+      "confirm_discard_changes": "There are unsaved changes to the current prompt.\nDiscard changes?",
+      "warning_empty_name": "Please enter a prompt name.",
+      "error_save_failed": "Failed to save the prompt.",
+      "save_as_message": "Enter a new prompt name:",
+      "confirm_delete_prompt": "Delete prompt '{0}'?\nThis action cannot be undone.",
+      "info_cannot_delete_last": "Cannot delete the last prompt."
+    },
+    "status": {
+      "ready": "Ready",
+      "char_count": "Characters: 0",
+      "char_count_value": "Characters: {0}",
+      "current_directory": "Directory: {0}",
+      "file": "File: {0}",
+      "directory": "Directory: {0}",
+      "status_unchanged": "Unchanged",
+      "status_modified": "Modified*",
+      "status_saved": "Saved",
+      "status_included": "✓ Include",
+      "status_excluded": "✗ Exclude"
+    },
+    "options": {
+      "label": "Display options:",
+      "imports": "Import statements",
+      "docstrings": "Documentation",
+      "skip_exe": "Skip EXE folders"
+    },
+    "tabs": {
+      "analysis": "Analysis Results",
+      "extended": "Extended Analysis",
+      "json": "JSON Output",
+      "prompt": "Prompt Input"
+    },
+    "labels": {
+      "analysis": "Analysis results:",
+      "extended": "Extended analysis results with astroid:",
+      "json": "Code structure in JSON format:",
+      "file_folder": "file/folder",
+      "error_content_label": "Error content:",
+      "prompt_list": "Prompt List",
+      "prompt_name_column": "Prompt Name",
+      "prompt_name_label": "Prompt name:",
+      "prompt_content_label": "Prompt content:"
+    },
+    "tab_selection": {
+      "label": "Copy tabs:"
+    },
+    "context_menu": {
+      "select_all": "Select All",
+      "copy": "Copy",
+      "paste": "Paste",
+      "cut": "Cut",
+      "open_explorer": "Open in Explorer",
+      "open_default": "Open with default app",
+      "new_prompt": "New",
+      "duplicate_prompt": "Duplicate",
+      "delete_prompt": "Delete"
+    },
+    "tree_view": {
+      "include": "Include in analysis",
+      "exclude": "Exclude from analysis",
+      "open_in_explorer": "Open in Explorer",
+      "open_with_app": "Open with default app"
+    },
+    "language": {
+      "japanese": "日本語",
+      "english": "English"
+    },
+    "dialogs": {
+      "info_title": "Information",
+      "error_title": "Error",
+      "confirm_title": "Confirmation",
+      "warning_title": "Warning",
+      "copy_info_title": "Copy",
+      "save_info_title": "Save",
+      "save_error_title": "Save Error",
+      "progress_title": "Processing",
+      "progress_loading_directory": "Loading Directory",
+      "save_error_log_title": "Save Error Log",
+      "save_as_title": "Save As"
+    },
+    "tooltips": {
+      "new_prompt_tooltip": "Create new prompt",
+      "delete_prompt_tooltip": "Delete selected prompt"
+    },
+    "file_types": {
+      "text_file": "Text File",
+      "all_files": "All Files"
+    }
+  },
+  "language": {
+    "changed_title": "Language Changed",
+    "changed_message": "Language has been changed. Some changes will take effect after restarting the application.",
+    "restart_title": "Restart Required",
+    "restart_message": "To fully apply language settings, please restart the application."
+  },
+  "templates": {
+    "prompt_template": "# Analysis Prompt for [File/Directory Name]\n\n    Analyze the following code structure:\n    [Analysis Results]\n\n    ## Questions/Instructions\n    [Enter your questions or instructions here]\n\n    ## Notes\n    [Add any special notes here]\n    "
+  },
+  "names": {
+    "new_prompt_name": "New Prompt",
+    "untitled_prompt": "Untitled Prompt"
+  }
+}
