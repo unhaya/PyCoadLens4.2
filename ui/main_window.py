@@ -121,10 +121,13 @@ class MainWindow:
         # ツールバーフレーム
         self.toolbar_frame = ttk.Frame(self.main_frame)
         self.toolbar_frame.pack(fill="x", pady=(0, 10))
-       
-        # 言語切り替えボタン  
-        self.setup_language_selector() 
-        
+
+        # 言語マネージャーを初期化（言語ボタン設定より前に）
+        self.language_manager = LanguageManager(self)
+
+        # 言語切り替えボタン
+        self.setup_language_selector()
+
         # ツールバーマネージャーを初期化してカスタムボタンをセットアップ
         self.toolbar_manager = ToolbarManager(self)
         self.toolbar_manager.setup_custom_buttons()
@@ -134,9 +137,6 @@ class MainWindow:
 
         # 出力ジェネレーターを初期化
         self.output_generator = OutputGenerator(self)
-
-        # 言語マネージャーを初期化
-        self.language_manager = LanguageManager(self)
 
         # エディタショートカットマネージャーを初期化
         self.editor_shortcuts = EditorShortcutsManager(self)
