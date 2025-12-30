@@ -15,6 +15,7 @@ from PIL import Image, ImageTk
 from ui.tree_view import DirectoryTreeView
 from ui.syntax_highlighter import SyntaxHighlighter
 from ui.error_display import ErrorDisplayWindow
+from ui.toolbar import ToolbarManager
 
 # 他のモジュール（絶対インポートパス）
 from utils.config import ConfigManager
@@ -120,8 +121,9 @@ class MainWindow:
         # 言語切り替えボタン  
         self.setup_language_selector() 
         
-        # カスタムボタンをセットアップ（標準のボタン作成コードを置き換え）
-        self.setup_custom_buttons()
+        # ツールバーマネージャーを初期化してカスタムボタンをセットアップ
+        self.toolbar_manager = ToolbarManager(self)
+        self.toolbar_manager.setup_custom_buttons()
 
         # ステータスバー
         self.status_frame = ttk.Frame(self.main_frame)
@@ -738,132 +740,6 @@ class MainWindow:
                     except Exception:
                         pass  # エントリが存在しない場合はスキップ
                         
-    def setup_custom_buttons(self):
-        """カスタムボタンをセットアップ（PNG画像を使用）"""
-        # アイコンディレクトリのパスを定義
-        self.icon_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icon")
-        
-        # 再分析ボタン
-        reanalyze_btn_frame = ttk.Frame(self.toolbar_frame)
-        reanalyze_btn_frame.pack(side="left", padx=5)
-
-        # アイコン画像
-        with Image.open(os.path.join(self.icon_dir, "refresh.png")) as reanalyze_icon:
-            reanalyze_icon_image = ImageTk.PhotoImage(reanalyze_icon.resize((24, 24)))
-
-        # アイコンラベル
-        reanalyze_icon_label = tk.Label(reanalyze_btn_frame, image=reanalyze_icon_image, bg="#f0f0f0")
-        reanalyze_icon_label.image = reanalyze_icon_image  # 参照を保持
-        reanalyze_icon_label.pack(side="left")
-
-        # テキストラベル
-        self.reanalyze_text_label = tk.Label(reanalyze_btn_frame, 
-                                          text=_("buttons.reanalyze", "再分析"), 
-                                          bg="#f0f0f0",
-                                          name="reanalyze_label")
-        self.reanalyze_text_label.pack(side="left", padx=2)
-
-        # ボタン機能
-        reanalyze_btn_frame.bind("<Button-1>", lambda e: self.reanalyze_project())
-        reanalyze_icon_label.bind("<Button-1>", lambda e: self.reanalyze_project())
-        self.reanalyze_text_label.bind("<Button-1>", lambda e: self.reanalyze_project())
-
-        # ホバーエフェクト
-        enter_func = self.create_enter_function(reanalyze_btn_frame, "#e0e0e0")
-        leave_func = self.create_leave_function(reanalyze_btn_frame, "#f0f0f0")
-
-        reanalyze_btn_frame.bind("<Enter>", enter_func)
-        reanalyze_btn_frame.bind("<Leave>", leave_func)
-        reanalyze_icon_label.bind("<Enter>", enter_func)
-        reanalyze_icon_label.bind("<Leave>", leave_func)
-        self.reanalyze_text_label.bind("<Enter>", enter_func)
-        self.reanalyze_text_label.bind("<Leave>", leave_func)
-
-        # 画像パスのベースディレクトリを相対パスで指定
-        icon_dir = os.path.join(os.path.dirname(__file__), "icon")
-        
-        # ボタン設定
-        button_configs = [
-            {'icon': "folder.png", 'label': "Import", 'command': self.import_directory},
-            {'icon': "analyze.png", 'label': "Analysis", 'command': self.analyze_selected},
-            {'icon': "copy.png", 'label': "Copy", 'command': self.copy_to_clipboard},
-            {'icon': "cleaner.png", 'label': "Clear", 'command': self.clear_workspace},
-            {'icon': "run.png", 'label': "Run", 'command': self.run_python_file}
-        ]
-        
-        # ボタンリストを保持
-        self.custom_buttons = []
-        
-        # 画像オブジェクトへの参照を保持（ガベージコレクションを防ぐため）
-        self.button_images = []
-        
-        # ツールバーにカスタムボタンを作成
-        for config in button_configs:
-            # アイコン画像のパス
-            icon_path = os.path.join(icon_dir, config['icon'])
-            
-            # 画像をロード
-            try:
-                with Image.open(icon_path) as icon_image:
-                    # サイズを24x24ピクセルに変更
-                    resized_icon = icon_image.resize((24, 24), Image.LANCZOS)
-                    icon_photo = ImageTk.PhotoImage(resized_icon)
-                    # 画像への参照を保持
-                    self.button_images.append(icon_photo)
-            except Exception as e:
-                print(f"アイコン画像の読み込みエラー: {e}")
-                # エラー時はデフォルトテキストを設定
-                icon_photo = None
-            
-            # フレームを作成
-            btn_frame = ttk.Frame(self.toolbar_frame)
-            btn_frame.pack(side="left", padx=5)
-            
-            # アイコンラベル
-            if icon_photo:
-                icon_label = tk.Label(btn_frame, image=icon_photo, background="#f0f0f0")
-            else:
-                # フォールバックとして文字を表示
-                icon_label = tk.Label(btn_frame, text="■", font=('Helvetica', 14), background="#f0f0f0")
-            icon_label.pack(side="left")
-            
-            # テキストラベル
-            text_label = tk.Label(btn_frame, text=" " + config['label'], 
-                                  font=('Helvetica', 10), background="#f0f0f0")
-            text_label.pack(side="left")
-            
-            # クリックイベント
-            cmd = config['command']
-            icon_label.bind("<Button-1>", lambda e, cmd=cmd: cmd())
-            text_label.bind("<Button-1>", lambda e, cmd=cmd: cmd())
-            
-            # ホバー効果用の関数 - ローカル関数を削除し、クラスメソッドを使用するように変更
-            enter_func = self.create_enter_function(btn_frame, "#e0e0e0")
-            leave_func = self.create_leave_function(btn_frame, "#f0f0f0")
-            
-            btn_frame.bind("<Enter>", enter_func)
-            btn_frame.bind("<Leave>", leave_func)
-            icon_label.bind("<Enter>", enter_func)
-            icon_label.bind("<Leave>", leave_func)
-            text_label.bind("<Enter>", enter_func)
-            text_label.bind("<Leave>", leave_func)
-            
-            # ボタンリストに追加
-            self.custom_buttons.append({
-                'frame': btn_frame,
-                'icon': icon_label,
-                'text': text_label,
-                'command': cmd
-            })
-
-    def create_enter_function(self, frame, color):
-        """ホバー時の色変更関数を生成"""
-        return lambda e: [w.configure(background=color) for w in frame.winfo_children()]
-
-    def create_leave_function(self, frame, color):
-        """ホバー終了時の色変更関数を生成"""
-        return lambda e: [w.configure(background=color) for w in frame.winfo_children()]
-
     def create_tab_selection_panel(self):
         """タブ選択パネルを作成"""
         tab_selection_frame = ttk.Frame(self.right_frame)
