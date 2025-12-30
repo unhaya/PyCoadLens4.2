@@ -1,99 +1,99 @@
 # PyCodeLens 4.2
 
-Pythonコード解析ツール - LLM（大規模言語モデル）向けにコード構造を可視化・出力
+Python Code Analysis Tool - Visualize and export code structure for LLMs (Large Language Models)
 
-## 概要
+## Overview
 
-PyCodeLensは、Pythonプロジェクトのコード構造を解析し、LLMに渡しやすい形式で出力するGUIツールです。クラス、関数、依存関係、継承関係などを抽出し、JSON、Mermaidダイアグラム、テキスト形式で出力できます。
+PyCodeLens is a GUI tool that analyzes Python project structures and outputs them in formats optimized for LLMs. It extracts classes, functions, dependencies, inheritance relationships, and exports them in JSON, Mermaid diagrams, or text format.
 
-## 主な機能
+## Features
 
-- **コード構造解析**: クラス、関数、メソッド、デコレータを抽出
-- **拡張解析（astroid）**: 型推論、継承関係、依存関係の詳細分析
-- **複数出力形式**:
-  - テキスト形式（解析結果タブ）
-  - 拡張解析形式（astroid解析タブ）
-  - JSON形式
-  - Mermaidダイアグラム
-- **ディレクトリツリー**: プロジェクト構造をツリー表示、解析対象を選択可能
-- **多言語対応**: 日本語/英語UI切り替え
-- **クリップボードコピー**: 選択したタブの内容をワンクリックでコピー
+- **Code Structure Analysis**: Extract classes, functions, methods, and decorators
+- **Extended Analysis (astroid)**: Detailed analysis including type inference, inheritance, and dependencies
+- **Multiple Output Formats**:
+  - Text format (Analysis tab)
+  - Extended analysis (astroid tab)
+  - JSON format
+  - Mermaid diagrams
+- **Directory Tree**: Display project structure with selectable analysis targets
+- **Multi-language UI**: Japanese/English toggle
+- **Clipboard Copy**: One-click copy of selected tab contents
 
-## インストール
+## Installation
 
-### 必須ライブラリ
+### Required Libraries
 
 ```bash
 pip install pillow pyperclip
 ```
 
-### 推奨ライブラリ（高度な機能用）
+### Recommended Libraries (for advanced features)
 
 ```bash
 pip install astroid ttkthemes
 ```
 
-- `astroid`: 拡張解析機能（型推論、継承関係、依存関係）
-- `ttkthemes`: 洗練されたUIテーマ
+- `astroid`: Extended analysis (type inference, inheritance, dependencies)
+- `ttkthemes`: Enhanced UI themes
 
-## 使い方
+## Usage
 
-### 起動
+### Launch
 
 ```bash
 python PyCodeLens4.2.py
 ```
 
-### 基本操作
+### Basic Operations
 
-1. **Import**: フォルダを選択してプロジェクトを読み込み
-2. **ツリーでファイル/フォルダを選択**: ダブルクリックで選択
-3. **Analysis**: 選択したファイル/フォルダを解析
-4. **Copy**: 選択したタブの内容をクリップボードにコピー
+1. **Import**: Select a folder to load the project
+2. **Select files/folders in tree**: Double-click to select
+3. **Analysis**: Analyze selected files/folders
+4. **Copy**: Copy selected tab contents to clipboard
 
-### ショートカット
+### Shortcuts
 
-- `Ctrl+A`: テキスト全選択
-- `Ctrl+C`: 選択テキストをコピー
-- 右クリック: コンテキストメニュー
+- `Ctrl+A`: Select all text
+- `Ctrl+C`: Copy selected text
+- Right-click: Context menu
 
-## プロジェクト構造
+## Project Structure
 
 ```
 PyCoadLens4.2/
-├── PyCodeLens4.2.py    # エントリーポイント
-├── core/               # 解析エンジン
-│   ├── analyzer.py         # 基本コード解析
-│   ├── astroid_analyzer.py # astroid拡張解析
-│   ├── database.py         # コードスニペットDB
-│   ├── dependency.py       # 依存関係分析
-│   ├── language_base.py    # 言語基底クラス
-│   └── language_registry.py # 言語レジストリ
-├── ui/                 # UIコンポーネント
-│   ├── main_window.py      # メインウィンドウ
-│   ├── toolbar.py          # ツールバー
-│   ├── tree_view.py        # ディレクトリツリー
-│   ├── analysis_handler.py # 解析ハンドラー
-│   ├── output_generator.py # 出力生成
-│   ├── language_manager.py # 言語切り替え
-│   ├── editor_shortcuts.py # ショートカット管理
-│   ├── syntax_highlighter.py # シンタックスハイライト
-│   ├── error_display.py    # エラー表示
-│   └── icon/               # アイコン画像
-├── utils/              # ユーティリティ
-│   ├── config.py          # 設定管理
-│   ├── file_utils.py      # ファイル操作
-│   ├── i18n.py            # 国際化
-│   ├── json_converter.py  # JSON変換
-│   └── code_extractor.py  # コード抽出
-└── locales/            # 翻訳ファイル
+├── PyCodeLens4.2.py    # Entry point
+├── core/               # Analysis engine
+│   ├── analyzer.py         # Basic code analysis
+│   ├── astroid_analyzer.py # astroid extended analysis
+│   ├── database.py         # Code snippet database
+│   ├── dependency.py       # Dependency analysis
+│   ├── language_base.py    # Language base class
+│   └── language_registry.py # Language registry
+├── ui/                 # UI components
+│   ├── main_window.py      # Main window
+│   ├── toolbar.py          # Toolbar
+│   ├── tree_view.py        # Directory tree
+│   ├── analysis_handler.py # Analysis handler
+│   ├── output_generator.py # Output generation
+│   ├── language_manager.py # Language switching
+│   ├── editor_shortcuts.py # Shortcut management
+│   ├── syntax_highlighter.py # Syntax highlighting
+│   ├── error_display.py    # Error display
+│   └── icon/               # Icon images
+├── utils/              # Utilities
+│   ├── config.py          # Configuration management
+│   ├── file_utils.py      # File operations
+│   ├── i18n.py            # Internationalization
+│   ├── json_converter.py  # JSON conversion
+│   └── code_extractor.py  # Code extraction
+└── locales/            # Translation files
     ├── ja.json
     └── en.json
 ```
 
-## EXEへのコンパイル
+## Compiling to EXE
 
-PyInstallerを使用してスタンドアロンEXEを作成できます。
+Create a standalone EXE using PyInstaller:
 
 ```bash
 pip install pyinstaller
@@ -105,12 +105,12 @@ pyinstaller --noconfirm --onedir --windowed ^
   PyCodeLens4.2.py
 ```
 
-出力先: `dist/PyCodeLens4.2/`
+Output: `dist/PyCodeLens4.2/`
 
-## ライセンス
+## License
 
 MIT License
 
-## 作者
+## Author
 
 unhaya
