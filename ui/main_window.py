@@ -17,11 +17,14 @@ from ui.syntax_highlighter import SyntaxHighlighter
 from ui.error_display import ErrorDisplayWindow
 from ui.toolbar import ToolbarManager
 from ui.analysis_handler import AnalysisHandler
+from ui.output_generator import OutputGenerator
+from ui.language_manager import LanguageManager
+from ui.editor_shortcuts import EditorShortcutsManager
 
 # 他のモジュール（絶対インポートパス）
 from utils.config import ConfigManager
 from utils.file_utils import open_in_explorer, open_with_default_app, create_temp_error_log, run_python_file
-from utils.json_converter import text_to_json_structure, extract_llm_structured_data
+# json_converterはOutputGeneratorに移動
 from core.analyzer import CodeAnalyzer
 from core.astroid_analyzer import AstroidAnalyzer
 from core.dependency import generate_call_graph
@@ -128,6 +131,15 @@ class MainWindow:
 
         # 解析ハンドラーを初期化
         self.analysis_handler = AnalysisHandler(self)
+
+        # 出力ジェネレーターを初期化
+        self.output_generator = OutputGenerator(self)
+
+        # 言語マネージャーを初期化
+        self.language_manager = LanguageManager(self)
+
+        # エディタショートカットマネージャーを初期化
+        self.editor_shortcuts = EditorShortcutsManager(self)
 
         # ステータスバー
         self.status_frame = ttk.Frame(self.main_frame)
@@ -287,463 +299,41 @@ class MainWindow:
         self.setup_analysis_result_context_menu()
 
     def generate_advanced_mermaid_for_llm(self):
-        """LLM向けに詳細なコード情報をマーメードダイアグラムで生成する"""
-        try:
-            mermaid_text = ""
-            
-            # 1. 拡張クラス図（docstring情報付き）
-            mermaid_text += "```mermaid\n"
-            mermaid_text += "classDiagram\n"
-            
-            # サブシステム境界の定義
-            modules = set()
-            for cls in self.astroid_analyzer.classes:
-                module = cls.get("module", "unknown")
-                modules.add(module)
-                
-            # サブグラフでモジュール/サブシステムを表現
-            for module in modules:
-                mermaid_text += f"  namespace {module} {{\n"
-                # モジュール内のクラスを追加
-                for cls in [c for c in self.astroid_analyzer.classes if c.get("module") == module]:
-                    cls_name = cls["name"]
-                    
-                    # クラスの責任範囲をコメントとして追加
-                    docstring = cls.get("docstring", "").replace("\n", "<br>")
-                    if docstring:
-                        mermaid_text += f"    %% {cls_name}: {docstring[:50]}...\n"
-                        
-                    # 継承関係
-                    for base in cls.get("base_classes", []):
-                        if base and base != "object":
-                            mermaid_text += f"    {base} <|-- {cls_name}\n"
-                            
-                    # 複雑さ指標を含んだクラス定義
-                    methods_count = len(cls.get("methods", []))
-                    attrs_count = len(cls.get("attributes", []))
-                    complexity = methods_count * 2 + attrs_count
-                    
-                    mermaid_text += f"    class {cls_name} {{\n"
-                    mermaid_text += f"      %% 複雑さ: {complexity}\n"
-                    
-                    # 主要メソッドとその説明
-                    for method in cls.get("methods", []):
-                        method_name = method["name"]
-                        params = ", ".join([p.get("name", "") for p in method.get("parameters", []) if p.get("name") != "self"])
-                        ret_type = method.get("return_type", "")
-                        return_str = f" : {ret_type}" if ret_type and ret_type != "unknown" else ""
-                        
-                        # メソッドの目的をコメントとして追加
-                        doc = method.get("docstring", "")
-                        if doc:
-                            short_doc = doc.split("\n")[0][:40] + "..."
-                            mermaid_text += f"      %% {method_name}: {short_doc}\n"
-                            
-                        visibility = "+" if not method_name.startswith("_") else "-"
-                        mermaid_text += f"      {visibility}{method_name}({params}){return_str}\n"
-                    
-                    mermaid_text += "    }\n"
-                mermaid_text += "  }\n"
-                
-            mermaid_text += "```\n\n"
-            
-            # 2. データフロー図
-            mermaid_text += "```mermaid\n"
-            mermaid_text += "flowchart TD\n"
-            
-            # データフローの視覚化
-            processed_flows = set()
-            
-            # 関数間のデータ依存関係を解析
-            for func in self.astroid_analyzer.functions:
-                func_name = func["name"]
-                
-                # 入力パラメータと出力(戻り値)の分析
-                params = [p.get("name") for p in func.get("parameters", [])]
-                ret_type = func.get("return_type", "")
-                
-                # 関数の呼び出し関係を検証
-                if func_name in self.astroid_analyzer.dependencies:
-                    for callee in self.astroid_analyzer.dependencies[func_name]:
-                        flow_key = f"{func_name}_{callee}"
-                        if flow_key not in processed_flows:
-                            # データの流れを示す（パラメータを使用して）
-                            data_passed = ""
-                            # このシンプルな例では一部の推測になる
-                            if params:
-                                data_passed = f"|{params[0]}|"
-                            
-                            mermaid_text += f"  {func_name} -->|{data_passed}| {callee}\n"
-                            processed_flows.add(flow_key)
-            
-            # 重要な関数に対して、複雑さと責任を示す
-            for func in self.astroid_analyzer.functions:
-                func_name = func["name"]
-                # 関数の複雑さを推定
-                lines = func.get("source_lines", 0)
-                calls = len(self.astroid_analyzer.dependencies.get(func_name, []))
-                complexity = lines + calls * 2
-                
-                # スタイル設定（複雑さに基づく）
-                if complexity > 20:
-                    mermaid_text += f"  style {func_name} fill:#f96,stroke:#333,stroke-width:2px\n"
-                elif complexity > 10:
-                    mermaid_text += f"  style {func_name} fill:#ff9,stroke:#333,stroke-width:1px\n"
-            
-            mermaid_text += "```\n\n"
-            
-            # 3. コンテキスト概要図（主要コンポーネントとその責任）
-            mermaid_text += "```mermaid\n"
-            mermaid_text += "mindmap\n"
-            mermaid_text += "  root((コードマップ))\n"
-            
-            # 主要なモジュールとその責任
-            for module in modules:
-                mermaid_text += f"    {module}\n"
-                
-                # モジュール内の主要クラス
-                module_classes = [c for c in self.astroid_analyzer.classes if c.get("module") == module]
-                for cls in module_classes:
-                    cls_name = cls["name"]
-                    mermaid_text += f"      {cls_name}\n"
-                    
-                    # 主な責任（簡潔に）
-                    docstring = cls.get("docstring", "")
-                    if docstring:
-                        first_line = docstring.split("\n")[0][:50]
-                        mermaid_text += f"        {first_line}\n"
-                        
-                    # 主要メソッド（最大3つ）
-                    methods = cls.get("methods", [])
-                    important_methods = sorted(methods, key=lambda m: len(m.get("docstring", "")), reverse=True)[:3]
-                    for method in important_methods:
-                        method_name = method["name"]
-                        if not method_name.startswith("_"):  # 公開メソッドのみ
-                            mermaid_text += f"        {method_name}()\n"
-            
-            mermaid_text += "```\n"
-            
-            return mermaid_text
-            
-        except Exception as e:
-            traceback.print_exc()
-            return f"マーメードダイアグラム生成中にエラーが発生しました: {str(e)}"
+        """LLM向けに詳細なコード情報をマーメードダイアグラムで生成する（OutputGeneratorに委譲）"""
+        return self.output_generator.generate_advanced_mermaid_for_llm()
 
     def generate_mermaid_output(self):
-        """現在の解析結果からマーメードダイアグラムを生成してマーメードタブに表示する"""
-        # 既存の解析結果を取得
-        if not hasattr(self, 'astroid_analyzer') or not self.astroid_analyzer.dependencies:
-            self.mermaid_text.delete(1.0, tk.END)
-            self.mermaid_text.insert(tk.END, "マーメードダイアグラム生成に必要な解析データがありません。")
-            return
-
-        try:
-            # マーメードテキスト初期化
-            mermaid_text = ""
-            
-            # 1. クラス図
-            if self.astroid_analyzer.classes:
-                mermaid_text += "```mermaid\n%% クラス図\nclassDiagram\n"
-                
-                # クラス定義と継承関係
-                for cls in self.astroid_analyzer.classes:
-                    cls_name = cls["name"]
-                    
-                    # 継承関係
-                    for base in cls.get("base_classes", []):
-                        if base and base != "object":
-                            mermaid_text += f"  {base} <|-- {cls_name}\n"
-                    
-                    # クラスの内容
-                    mermaid_text += f"  class {cls_name} {{\n"
-                    
-                    # メソッド (最大10個まで表示)
-                    methods = cls.get("methods", [])[:10]
-                    for method in methods:
-                        method_name = method["name"]
-                        params = ", ".join([p.get("name", "") for p in method.get("parameters", []) 
-                                         if p.get("name") != "self"])
-                        mermaid_text += f"    +{method_name}({params})\n"
-                    
-                    mermaid_text += "  }\n"
-                
-                mermaid_text += "```\n\n"
-            
-            # 2. 関数呼び出し図
-            mermaid_text += "```mermaid\n%% 関数呼び出し図\nflowchart TD\n"
-            
-            # ノードスタイル
-            mermaid_text += "  %% ノードスタイル\n"
-            mermaid_text += "  classDef main fill:#f96,stroke:#333,stroke-width:2px;\n"
-            mermaid_text += "  classDef method fill:#9cf,stroke:#333,stroke-width:1px;\n"
-            mermaid_text += "  classDef func fill:#cfc,stroke:#333,stroke-width:1px;\n"
-            
-            # 主要な依存関係をフロー図に変換
-            added_nodes = set()
-            added_relations = set()
-            
-            # 重要度でソート (呼び出し数が多い順)
-            sorted_callers = sorted(self.astroid_analyzer.dependencies.items(), 
-                                 key=lambda x: len(x[1]), reverse=True)
-            # 最大20の関数を表示
-            for caller, callees in sorted_callers[:20]:
-                caller_id = caller.replace('.', '_').replace('()', '')
-                
-                # ノード追加
-                if caller not in added_nodes:
-                    if caller == "main" or caller.endswith(".main"):
-                        mermaid_text += f"  {caller_id}[\"🚀 {caller}\"]:::main\n"
-                    elif "." in caller:  # クラスメソッド
-                        mermaid_text += f"  {caller_id}[\"{caller}\"]:::method\n"
-                    else:  # 通常関数
-                        mermaid_text += f"  {caller_id}[\"{caller}\"]:::func\n"
-                    added_nodes.add(caller)
-                
-                # 依存関係を追加 (最大5つの依存を表示)
-                for callee in list(callees)[:5]:
-                    callee_id = callee.replace('.', '_').replace('()', '')
-                    relation = f"{caller_id}-->{callee_id}"
-                    
-                    # 標準ライブラリ関数などはスキップ
-                    if callee not in added_nodes and not any(callee.startswith(lib) for lib in 
-                                                        ['print', 'len', 'os.', 'sys.', 'tk.']):
-                        # ノード追加
-                        if "." in callee:  # クラスメソッド
-                            mermaid_text += f"  {callee_id}[\"{callee}\"]:::method\n"
-                        else:  # 通常関数
-                            mermaid_text += f"  {callee_id}[\"{callee}\"]:::func\n"
-                        added_nodes.add(callee)
-                    
-                    # 関係を追加
-                    if relation not in added_relations:
-                        mermaid_text += f"  {caller_id}-->{callee_id}\n"
-                        added_relations.add(relation)
-            
-            mermaid_text += "```\n\n"
-            
-            # 3. モジュール関係図の部分を完全に書き換え
-            mermaid_text += "```mermaid\n%% モジュール構造\nflowchart LR\n"
-
-            try:
-                # ディレクトリ情報からのみモジュール構造を構築
-                if self.current_dir:
-                    python_files = self.dir_tree_view.get_included_files(include_python_only=True)
-                    modules = {}
-                    
-                    # モジュールをディレクトリでグループ化
-                    for file_path in python_files:
-                        dir_name = os.path.basename(os.path.dirname(file_path))
-                        file_name = os.path.basename(file_path).replace('.py', '')
-                        
-                        # モジュール名を安全な形式に変換
-                        safe_dir_name = dir_name.replace(' ', '_').replace('-', '_')
-                        safe_file_name = file_name.replace('.', '_').replace('-', '_').replace(' ', '_')
-                        
-                        if safe_dir_name not in modules:
-                            modules[safe_dir_name] = []
-                        modules[safe_dir_name].append((file_name, safe_file_name))
-                    
-                    # サブグラフでディレクトリ構造を表現
-                    for dir_name, files in modules.items():
-                        mermaid_text += f"  subgraph {dir_name}[{dir_name.replace('_', ' ')}]\n"
-                        
-                        # ディレクトリ内のモジュール
-                        for original_name, safe_name in files:
-                            mermaid_text += f"    {safe_name}[\"{original_name}\"]\n"
-                        
-                        mermaid_text += "  end\n"
-                    
-                    # ディレクトリ間の関係（単純な例として親子関係を示す）
-                    if len(modules) > 1:
-                        mermaid_text += "  %% ディレクトリ間の関係\n"
-                        dirs = list(modules.keys())
-                        for i in range(1, len(dirs)):
-                            mermaid_text += f"  {dirs[0]}-->{dirs[i]}\n"
-                    
-                    # メイン関数等の特別な関係を追加（ある場合）
-                    if hasattr(self, 'astroid_analyzer') and hasattr(self.astroid_analyzer, 'functions'):
-                        # main関数を探す
-                        main_functions = [f for f in self.astroid_analyzer.functions if f.get('name') == 'main']
-                        if main_functions:
-                            # main関数がどのファイルにあるか推測
-                            for original_name, safe_name in sum(modules.values(), []):
-                                mermaid_text += f"  {safe_name}:::mainModule\n"
-                                break
-                            
-                            mermaid_text += "  classDef mainModule fill:#f96,stroke:#333,stroke-width:2px;\n"
-
-            except Exception as e:
-                # モジュール図生成中のエラーをキャッチして続行
-                mermaid_text += f"  error[\"エラー: {str(e)}\"]\n"
-
-            mermaid_text += "```\n"
-            
-            # マーメードタブに表示
-            self.mermaid_text.delete(1.0, tk.END)
-            self.mermaid_text.insert(tk.END, mermaid_text)
-            
-            # シンタックスハイライト適用
-            if hasattr(self, 'mermaid_highlighter'):
-                self.mermaid_highlighter.highlight()
-            
-            # 文字数更新
-            current_tab_index = self.tab_control.index(self.tab_control.select())
-            if current_tab_index == 3:  # マーメードタブ
-                char_count = len(mermaid_text)
-                self.char_count_label.config(text=_("ui.status.char_count_value", "文字数: {0}").format(char_count))
-            
-        except Exception as e:
-            traceback.print_exc()
-            self.mermaid_text.delete(1.0, tk.END)
-            self.mermaid_text.insert(tk.END, f"マーメードダイアグラム生成中にエラーが発生しました: {str(e)}")
+        """マーメードダイアグラム生成（OutputGeneratorに委譲）"""
+        self.output_generator.generate_mermaid_output()
 
     def setup_language_selector(self):
-        """言語切り替えボタンを設定"""
-        # 言語ボタンフレームを作成（右上に配置）
-        language_frame = ttk.Frame(self.toolbar_frame)
-        language_frame.pack(side="right", padx=10)
-        
-        # 日本語ボタン
-        self.jp_button = ttk.Button(
-            language_frame, 
-            text=_("ui.language.japanese", "日本語"), 
-            width=8,
-            command=lambda: self.change_language("ja")
-        )
-        self.jp_button.pack(side="left", padx=2)
-
-        # 英語ボタン
-        self.en_button = ttk.Button(
-            language_frame, 
-            text=_("ui.language.english", "English"), 
-            width=8,
-            command=lambda: self.change_language("en")
-        )
-        self.en_button.pack(side="left", padx=2)
-        
-        # 現在の言語に基づいてボタンの状態を更新
-        self.update_language_buttons()
+        """言語切り替えボタン設定（LanguageManagerに委譲）"""
+        self.language_manager.setup_language_selector()
 
     def update_language_buttons(self):
-        """現在の言語に基づいてボタンの状態を更新"""
-        current_lang = self.i18n.get_current_language()
-        
-        # すべてのボタンを通常状態にリセット
-        self.jp_button.state(["!disabled"])
-        self.en_button.state(["!disabled"])
-        
-        # 現在の言語のボタンを無効化（選択状態を示す）
-        if current_lang == "ja":
-            self.jp_button.state(["disabled"])
-        elif current_lang == "en":
-            self.en_button.state(["disabled"])
+        """言語ボタン状態更新（LanguageManagerに委譲）"""
+        self.language_manager.update_language_buttons()
 
     def change_language(self, lang_code):
-        """言語を変更する"""
-        if self.i18n.get_current_language() != lang_code:
-            if self.i18n.set_language(lang_code):
-                self.update_language_buttons()
-                
-                # 確認メッセージ（変更した言語で表示）
-                messagebox.showinfo(
-                    _("language.changed_title", "言語変更"),
-                    _("language.changed_message", "言語を変更しました。一部の変更はアプリケーションの再起動後に適用されます。")
-                )
-                
-                # 即時更新可能なUI要素を更新
-                self.update_ui_texts()
+        """言語変更（LanguageManagerに委譲）"""
+        self.language_manager.change_language(lang_code)
 
     def on_language_change(self, event=None):
-        """言語変更時の処理"""
-        selected_language = self.language_var.get()
-        if self.i18n.set_language(selected_language):
-            messagebox.showinfo(
-                _("language.restart_title", "再起動が必要"),
-                _("language.restart_message", "言語設定を完全に適用するには、アプリケーションの再起動が必要です。")
-            )
-            # 一部のUIテキストを即時更新できる場合は、ここでそれを行います
-            self.update_ui_texts()
-            
+        """言語変更処理（LanguageManagerに委譲）"""
+        self.language_manager.on_language_change(event)
+
     def update_ui_texts(self):
-        """UIテキストを現在の言語に更新"""
-        # タイトル更新
-        self.root.title(_("app.title", "コード解析ツール"))
-        
-        # タブ名などの更新
-        if hasattr(self, 'notebook') and self.notebook:
-            for i, tab_name in enumerate(["project", "code", "analysis", "json", "prompt"]):
-                self.notebook.tab(i, text=_("tabs." + tab_name, self.notebook.tab(i, "text")))
-        
-        # ボタンテキスト更新
-        if hasattr(self, 'analyze_button'):
-            self.analyze_button.config(text=_("buttons.analyze", "解析"))
-        if hasattr(self, 'copy_button'):
-            self.copy_button.config(text=_("buttons.copy", "コピー"))
-        if hasattr(self, 'clear_button'):
-            self.clear_button.config(text=_("buttons.clear", "クリア"))
-        
-        # 再分析ボタン更新（追加）
-        if hasattr(self, 'reanalyze_text_label'):
-            self.reanalyze_text_label.config(text=_("buttons.reanalyze", "再分析"))
-        
-        # ステータスバー更新
-        if hasattr(self, 'file_status'):
-            current_text = self.file_status.cget("text")
-            if current_text.strip() == "":
-                self.file_status.config(text=_("status.ready", "準備完了"))
-        
-        # チェックボックスとラベル更新
-        for widget in self.root.winfo_children():
-            self._update_widget_texts(widget)
-        
-        # メニュー更新（オプション）
-        if hasattr(self, 'menu'):
-            self._update_menu_texts()
+        """UIテキスト更新（LanguageManagerに委譲）"""
+        self.language_manager.update_ui_texts()
 
     def _update_widget_texts(self, parent):
-        """ウィジェット内のテキストを再帰的に更新"""
-        for widget in parent.winfo_children():
-            if isinstance(widget, ttk.Checkbutton) or isinstance(widget, tk.Checkbutton):
-                # チェックボックスのテキスト更新
-                text = widget.cget("text")
-                if text:
-                    widget_name = widget.winfo_name()
-                    widget.config(text=_(f"widget.{widget_name}", text))
-            elif isinstance(widget, ttk.Label) or isinstance(widget, tk.Label):
-                # ラベルのテキスト更新
-                text = widget.cget("text")
-                if text and not text.startswith(("http://", "https://", "/", "C:", "D:")):
-                    widget_name = widget.winfo_name()
-                    widget.config(text=_(f"widget.{widget_name}", text))
-            
-            # 子ウィジェットも処理
-            if widget.winfo_children():
-                self._update_widget_texts(widget)
+        """ウィジェットテキスト更新（LanguageManagerに委譲）"""
+        self.language_manager._update_widget_texts(parent)
 
     def _update_menu_texts(self):
-        """メニューテキストを更新"""
-        if not hasattr(self, 'menu'):
-            return
-            
-        menu_items = {
-            "file": ["open", "save", "exit"],
-            "edit": ["copy", "paste", "select_all"],
-            "tools": ["analyze", "settings", "reanalyze"],
-            "help": ["about", "documentation"]
-        }
-        
-        for menu_name, items in menu_items.items():
-            if hasattr(self.menu, menu_name):
-                menu_obj = getattr(self.menu, menu_name)
-                menu_obj.entryconfig(0, label=_(f"menu.{menu_name}", menu_name.capitalize()))
-                
-                for i, item in enumerate(items):
-                    try:
-                        current_label = menu_obj.entrycget(i, "label")
-                        menu_obj.entryconfig(i, label=_(f"menu.{menu_name}.{item}", current_label))
-                    except Exception:
-                        pass  # エントリが存在しない場合はスキップ
-                        
+        """メニューテキスト更新（LanguageManagerに委譲）"""
+        self.language_manager._update_menu_texts()
+
     def create_tab_selection_panel(self):
         """タブ選択パネルを作成"""
         tab_selection_frame = ttk.Frame(self.right_frame)
@@ -856,59 +446,20 @@ class MainWindow:
                     self.dir_tree_view.load_directory(self.current_dir)
     
     def setup_text_editor_shortcuts(self):
-        """テキストエディタのショートカットとコンテキストメニューを設定"""
-        # 各テキストエリアにショートカットを設定
-        self.setup_editor_shortcuts(self.result_text)
-        self.setup_editor_shortcuts(self.extended_text)
-        self.setup_editor_shortcuts(self.json_text)
-        self.setup_editor_shortcuts(self.mermaid_text)  # マーメードテキストエリアを追加
-        
-        # プロンプトテキストエリアのショートカット設定（別途実装）
-        # if hasattr(self.prompt_ui, 'prompt_text'):
-            # self.setup_editor_shortcuts(self.prompt_ui.prompt_text)    
+        """テキストエディタショートカット設定（EditorShortcutsManagerに委譲）"""
+        self.editor_shortcuts.setup_text_editor_shortcuts()
 
     def setup_editor_shortcuts(self, text_widget):
-        """テキストウィジェットにショートカットとコンテキストメニューを設定"""
-        # ショートカットキーのバインド
-        text_widget.bind("<Control-a>", lambda event: self.select_all(event, text_widget))
-        text_widget.bind("<Control-c>", lambda event: self.copy_text(event, text_widget))
-        
-        # コンテキストメニュー作成
-        context_menu = tk.Menu(text_widget, tearoff=0)
-        context_menu.add_command(label=_("ui.context_menu.copy", "コピー"), command=lambda: self.copy_text(None, text_widget), accelerator="Ctrl+C")
-        context_menu.add_separator()
-        context_menu.add_command(label=_("ui.context_menu.select_all", "すべて選択"), command=lambda: self.select_all(None, text_widget), accelerator="Ctrl+A")
-        
-        # 右クリックでコンテキストメニュー表示
-        if sys.platform == 'darwin':  # macOS
-            text_widget.bind("<Button-2>", lambda event: self.show_context_menu(event, context_menu))
-        else:  # Windows/Linux
-            text_widget.bind("<Button-3>", lambda event: self.show_context_menu(event, context_menu))
-    
-    def show_context_menu(self, event, menu):
-        """コンテキストメニューを表示"""
-        try:
-            menu.tk_popup(event.x_root, event.y_root)
-        finally:
-            menu.grab_release()
-        return "break"  # イベントの伝播を停止
-    
+        """エディタショートカット設定（EditorShortcutsManagerに委譲）"""
+        self.editor_shortcuts.setup_editor_shortcuts(text_widget)
+
     def select_all(self, event, text_widget):
-        """テキストをすべて選択"""
-        text_widget.tag_add(tk.SEL, "1.0", tk.END)
-        text_widget.mark_set(tk.INSERT, tk.END)
-        text_widget.see(tk.INSERT)
-        return "break"  # イベントの伝播を停止
-    
+        """テキスト全選択（EditorShortcutsManagerに委譲）"""
+        return self.editor_shortcuts.select_all(event, text_widget)
+
     def copy_text(self, event, text_widget):
-        """選択テキストをコピー"""
-        try:
-            selection = text_widget.get(tk.SEL_FIRST, tk.SEL_LAST)
-            self.root.clipboard_clear()
-            self.root.clipboard_append(selection)
-        except tk.TclError:
-            pass  # 選択されていない場合は何もしない
-        return "break"  # イベントの伝播を停止
+        """テキストコピー（EditorShortcutsManagerに委譲）"""
+        return self.editor_shortcuts.copy_text(event, text_widget)
 
     def on_tab_changed(self, event=None):
         """タブが切り替わったときに文字数を更新する"""
@@ -1266,62 +817,8 @@ class MainWindow:
             return False
 
     def get_directory_structure(self, python_files):
-        """ファイルリストからディレクトリ構造を生成する"""
-        # ファイルのディレクトリを取得する
-        if not python_files:
-            return "ファイルがありません"
-        
-        # 共通のルートディレクトリを見つける
-        file_dirs = [os.path.dirname(f) for f in python_files]
-        common_root = os.path.commonpath(file_dirs) if file_dirs else ""
-        
-        # ディレクトリツリーを構築
-        tree = {}
-        for file_path in python_files:
-            # ルートからの相対パスを取得
-            rel_path = os.path.relpath(file_path, common_root)
-            parts = rel_path.split(os.sep)
-            
-            # ツリー構造に追加
-            current = tree
-            for i, part in enumerate(parts):
-                if i == len(parts) - 1:  # ファイル
-                    if "_files" not in current:
-                        current["_files"] = []
-                    current["_files"].append(part)
-                else:  # ディレクトリ
-                    if part not in current:
-                        current[part] = {}
-                    current = current[part]
-        
-        # ツリー構造を文字列に変換
-        result = []
-        
-        def print_tree(node, prefix="", is_last=True, indent=""):
-            # ディレクトリ内のファイルとサブディレクトリを取得
-            dirs = sorted([k for k in node.keys() if k != "_files"])
-            files = sorted(node.get("_files", []))
-            
-            # 現在のディレクトリのファイルを出力
-            for i, f in enumerate(files):
-                is_last_file = (i == len(files) - 1) and not dirs
-                result.append(f"{indent}{'└── ' if is_last_file else '├── '}{f}")
-            
-            # サブディレクトリを出力
-            for i, d in enumerate(dirs):
-                is_last_dir = (i == len(dirs) - 1)
-                result.append(f"{indent}{'└── ' if is_last_dir else '├── '}{d}/")
-                # 次のレベルのインデント
-                next_indent = indent + ("    " if is_last_dir else "│   ")
-                print_tree(node[d], prefix + d + "/", is_last_dir, next_indent)
-        
-        # ルートディレクトリ名を出力
-        root_name = os.path.basename(common_root) or "root"
-        result.append(f"{root_name}/")
-        # ルート以下のツリーを出力
-        print_tree(tree, indent="")
-        
-        return "\n".join(result)
+        """ディレクトリ構造を生成（OutputGeneratorに委譲）"""
+        return self.output_generator.get_directory_structure(python_files)
     
     def analyze_selected(self):
         """選択されたファイルまたはディレクトリを解析（AnalysisHandlerに委譲）"""
@@ -1401,64 +898,8 @@ class MainWindow:
         self.analysis_handler.perform_extended_analysis(python_files)
 
     def generate_json_output(self):
-        """現在の解析結果からJSON出力を生成してJSONタブに表示する"""
-        # 現在の解析結果を取得
-        result_text = self.result_text.get(1.0, "end-1c")
-        extended_text = self.extended_text.get(1.0, "end-1c")
-        
-        if not result_text.strip():
-            self.json_text.delete(1.0, tk.END)
-            self.json_text.insert(tk.END, "JSONに変換する解析結果がありません。")
-            return
-        
-        try:
-            # テキストをJSON構造に変換
-            json_data = text_to_json_structure(result_text)
-            
-            # ディレクトリ構造をJSONの冒頭に追加
-            if self.selected_file:
-                # ファイルモードの場合は、そのファイルを含むディレクトリを取得
-                python_files = [self.selected_file]
-            else:
-                # ディレクトリモードの場合は含まれるPythonファイルを取得
-                python_files = self.dir_tree_view.get_included_files(include_python_only=True)
-            
-            # ディレクトリ構造を取得して行ごとの配列に変換
-            if python_files:
-                dir_structure_text = self.get_directory_structure(python_files)
-                dir_structure_lines = dir_structure_text.split('\n')
-                
-                # 既存のディレクトリ構造を上書き
-                json_data["directory_structure"] = dir_structure_lines
-            
-            # 拡張解析テキストがあれば追加
-            if extended_text.strip():
-                # LLM構造化データ部分を抽出して構造化
-                extended_data = extract_llm_structured_data(extended_text)
-                if extended_data:
-                    json_data["extended_analysis"] = extended_data
-            
-            # JSON形式の文字列に変換して整形
-            import json
-            json_string = json.dumps(json_data, indent=2, ensure_ascii=False)
-            
-            # JSONタブに表示
-            self.json_text.delete(1.0, tk.END)
-            self.json_text.insert(tk.END, json_string)
-            
-            # シンタックスハイライトを適用
-            self.json_highlighter.highlight()
-            
-            # 現在表示されているタブがJSONタブの場合のみ文字数を更新
-            current_tab_index = self.tab_control.index(self.tab_control.select())
-            if current_tab_index == 2:  # JSONタブ (JSONタブが3番目)
-                char_count = len(json_string)
-                self.char_count_label.config(text=_("ui.status.char_count_value", "文字数: {0}").format(char_count))
-            
-        except Exception as e:
-            traceback.print_exc()
-            self.json_text.delete(1.0, tk.END)
-            self.json_text.insert(tk.END, f"JSON変換中にエラーが発生しました: {str(e)}")
+        """JSON出力生成（OutputGeneratorに委譲）"""
+        self.output_generator.generate_json_output()
     
     def clear_workspace(self):
         """ワークスペースをクリアして初期状態に戻す"""
@@ -1515,31 +956,16 @@ class MainWindow:
             messagebox.showerror("エラー", f"実行エラー: {str(e)}")
             
     def setup_analysis_result_context_menu(self):
-        """解析結果タブのコンテキストメニューをセットアップ"""
-        # コンテキストメニュー
-        self.result_context_menu = tk.Menu(self.result_text, tearoff=0)
-        self.result_context_menu.add_command(label="コピー", command=self.copy_selected_text)
-        self.result_context_menu.add_separator()
-        self.result_context_menu.add_command(label="選択された要素のコード全体をコピー", command=self.copy_code)
-        
-        # 右クリックイベント
-        self.result_text.bind("<Button-3>", self.show_result_context_menu)
+        """解析結果コンテキストメニュー設定（EditorShortcutsManagerに委譲）"""
+        self.editor_shortcuts.setup_analysis_result_context_menu()
 
     def show_result_context_menu(self, event):
-        """解析結果のコンテキストメニューを表示"""
-        self.result_text.focus_set()
-        self.result_context_menu.tk_popup(event.x_root, event.y_root)
-        return "break"
+        """解析結果コンテキストメニュー表示（EditorShortcutsManagerに委譲）"""
+        return self.editor_shortcuts.show_result_context_menu(event)
 
     def copy_selected_text(self):
-        """選択されたテキストをコピー"""
-        try:
-            selected_text = self.result_text.get("sel.first", "sel.last")
-            if selected_text:
-                pyperclip.copy(selected_text)
-                self.file_status.config(text="選択テキストをコピーしました")
-        except tk.TclError:
-            pass  # 選択がない場合
+        """選択テキストコピー（EditorShortcutsManagerに委譲）"""
+        self.editor_shortcuts.copy_selected_text()
 
     # MainWindowクラスに追加するメソッド
     def setup_snippet_context_menu(self):
@@ -1957,58 +1383,12 @@ class MainWindow:
             self.file_status.config(text="コードのコピー中にエラーが発生しました")
 
     def setup_code_context_menus(self):
-        """コード関連のコンテキストメニューをセットアップ"""
-        # 解析結果用のコンテキストメニュー
-        self.code_context_menu = tk.Menu(self.root, tearoff=0)
-        self.code_context_menu.add_command(label="選択テキストをコピー", command=self.copy_selection)
-        self.code_context_menu.add_separator()
-        self.code_context_menu.add_command(label="完全なコードをコピー", command=self.copy_code)
-        
-        # 各テキストエリアにバインド
-        for text_widget in [self.result_text, self.extended_text]:
-            text_widget.bind("<Button-3>", self.show_code_context_menu)
+        """コードコンテキストメニュー設定（EditorShortcutsManagerに委譲）"""
+        self.editor_shortcuts.setup_code_context_menus()
 
     def show_code_context_menu(self, event):
-        """コードコンテキストメニューを表示"""
-        widget = event.widget
-        widget.focus_set()
-        
-        try:
-            # 選択テキストがあるか確認
-            has_selection = False
-            try:
-                sel_ranges = widget.tag_ranges("sel")
-                has_selection = sel_ranges and len(sel_ranges) >= 2
-            except Exception:
-                has_selection = False
-            
-            # 選択に応じてメニュー項目の有効/無効を設定
-            self.code_context_menu.entryconfig("選択テキストをコピー", 
-                                            state="normal" if has_selection else "disabled")
-            
-            # 完全なコード取得が可能かどうか判断
-            can_get_code = False
-            if has_selection:
-                try:
-                    # 選択テキストが関数またはクラス定義行かチェック
-                    sel_line = widget.get("sel.first linestart", "sel.first lineend").strip()
-                    can_get_code = sel_line.startswith("def ") or sel_line.startswith("class ")
-                except Exception:
-                    can_get_code = False
-            
-            self.code_context_menu.entryconfig("完全なコードをコピー", 
-                                            state="normal" if can_get_code else "disabled")
-            
-            # メニュー表示
-            self.code_context_menu.tk_popup(event.x_root, event.y_root)
-        except Exception as e:
-            print(f"コンテキストメニュー表示エラー: {str(e)}")
-            traceback.print_exc()
-        finally:
-            # grab_releaseは必ず呼び出す
-            self.code_context_menu.grab_release()
-        
-        return "break"  # イベント伝播を停止
+        """コードコンテキストメニュー表示（EditorShortcutsManagerに委譲）"""
+        return self.editor_shortcuts.show_code_context_menu(event)
 
     def copy_selection(self):
         """選択テキストをコピー"""
