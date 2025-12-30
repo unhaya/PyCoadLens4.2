@@ -16,6 +16,7 @@ from ui.tree_view import DirectoryTreeView
 from ui.syntax_highlighter import SyntaxHighlighter
 from ui.error_display import ErrorDisplayWindow
 from ui.toolbar import ToolbarManager
+from ui.analysis_handler import AnalysisHandler
 
 # 他のモジュール（絶対インポートパス）
 from utils.config import ConfigManager
@@ -124,6 +125,9 @@ class MainWindow:
         # ツールバーマネージャーを初期化してカスタムボタンをセットアップ
         self.toolbar_manager = ToolbarManager(self)
         self.toolbar_manager.setup_custom_buttons()
+
+        # 解析ハンドラーを初期化
+        self.analysis_handler = AnalysisHandler(self)
 
         # ステータスバー
         self.status_frame = ttk.Frame(self.main_frame)
@@ -1320,38 +1324,8 @@ class MainWindow:
         return "\n".join(result)
     
     def analyze_selected(self):
-        """選択されたファイルまたはディレクトリを解析"""
-        # ファイルモードかディレクトリモードかを明示的に確認
-        file_mode = self.selected_file and os.path.isfile(self.selected_file)
-        
-        # ファイルモードの場合は、そのファイルだけを解析
-        if file_mode:
-            self.analyze_file(self.selected_file)
-            return
-        
-        # ディレクトリモードの場合は、含まれるPythonファイルのみを解析
-        included_files = self.dir_tree_view.get_included_files(include_python_only=True)
-        
-        if not included_files:
-            messagebox.showinfo("情報", "解析対象のPythonファイルがありません。\n"
-                               "ディレクトリを選択し、Pythonファイルが含まれていることを確認してください。\n"
-                               "または、Pythonファイルがすべて「除外」状態になっていないか確認してください。")
-            return
-        
-        # 解析実行
-        result, char_count = self.analyzer.analyze_files(included_files)
-        
-        # 結果表示
-        self.result_text.delete(1.0, tk.END)
-        self.result_text.insert(tk.END, result)
-        self.result_highlighter.highlight()
-        self.char_count_label.config(text=_("ui.status.char_count_value", "文字数: {0}").format(char_count))
-        
-        # ステータス更新
-        self.file_status.config(text=f"{len(included_files)} 個のPythonファイルを解析しました")
-        
-        # 拡張解析を実行
-        self.perform_extended_analysis(included_files)
+        """選択されたファイルまたはディレクトリを解析（AnalysisHandlerに委譲）"""
+        self.analysis_handler.analyze_selected()
 
     def copy_to_clipboard(self):
         """解析結果とプロンプトをクリップボードにコピーする（選択されたタブに基づく）"""
@@ -1410,67 +1384,8 @@ class MainWindow:
             )    
 
     def analyze_file(self, file_path):
-        """単一のファイルを解析"""
-        try:
-            # 通常の解析（UI表示用）
-            result, char_count = self.analyzer.analyze_file(file_path)
-            
-            # ファイル文字数を取得して表示に組み込む
-            with open(file_path, 'r', encoding='utf-8') as f:
-                code = f.read()
-                file_char_count = len(code)
-            
-            # 文字数表示を追加
-            file_name = os.path.basename(file_path)
-            dir_path = os.path.dirname(file_path)
-            formatted_result = f"## ディレクトリ: {dir_path}\n### ファイル: {file_name}\n"
-            formatted_result += f"文字数: {file_char_count:,}\n\n"
-            formatted_result += result
-            
-            # 結果表示
-            self.result_text.delete(1.0, tk.END)
-            self.result_text.insert(tk.END, formatted_result)
-            self.result_highlighter.highlight()
-            
-            # コード抽出モジュールを使用してデータベースに保存
-            from utils.code_extractor import CodeExtractor
-            extractor = CodeExtractor(self.code_database)
-            
-            try:
-                # コード抽出と保存を実行
-                snippet_count = extractor.extract_from_file(file_path)
-                self.current_file = file_path  # 現在のファイルパスを保存
-                
-                # ステータス表示を更新
-                self.file_status.config(
-                    text=_("ui.status.file_extracted", "ファイル: {0}（{1}個のスニペットを抽出）")
-                    .format(os.path.basename(file_path), snippet_count)
-                )
-            except Exception as ex:
-                print(f"コード抽出エラー: {str(ex)}")
-                traceback.print_exc()
-                # エラーは表示するが処理は続行
-            
-            # 現在表示されているタブが解析結果タブの場合のみ文字数を更新
-            current_tab_index = self.tab_control.index(self.tab_control.select())
-            if current_tab_index == 0:
-                self.char_count_label.config(text=_("ui.status.char_count_value", "文字数: {0}").format(file_char_count))
-            
-            # 拡張解析を実行
-            self.perform_extended_analysis([file_path])
-            
-            # JSON出力を生成
-            self.generate_json_output()
-            
-            # マーメードダイアグラムを生成
-            self.generate_mermaid_output()
-            
-        except Exception as e:
-            traceback.print_exc()
-            messagebox.showerror(
-                _("ui.dialogs.error_title", "エラー"), 
-                _("ui.messages.analysis_error", "ファイルの解析中にエラーが発生しました:\n{0}").format(str(e))
-            )
+        """単一のファイルを解析（AnalysisHandlerに委譲）"""
+        self.analysis_handler.analyze_file(file_path)
 
     def load_code_snippets(self, file_path):
         """データベースからファイルのコードスニペットを読み込む"""
@@ -1482,211 +1397,8 @@ class MainWindow:
             return []
 
     def perform_extended_analysis(self, python_files):
-        """astroidによる拡張解析を実行する"""
-        try:
-            import astroid
-            
-            if not python_files:
-                self.extended_text.delete(1.0, tk.END)
-                self.extended_text.insert(tk.END, "拡張解析対象のPythonファイルがありません。")
-                return
-                    
-            # 解析結果を保存する辞書
-            analysis_results = {}
-            module_nodes = {}
-            
-            # プログレスウィンドウを表示
-            progress_window = tk.Toplevel(self.root)
-            progress_window.title("拡張解析中")
-            progress_window.geometry("400x100")
-            progress_window.transient(self.root)
-                
-            progress_label = ttk.Label(progress_window, text=f"ファイルを解析中... (0/{len(python_files)})")
-            progress_label.pack(pady=10)
-                
-            progress_bar = ttk.Progressbar(progress_window, mode="determinate", maximum=100)
-            progress_bar.pack(fill="x", padx=20)
-                
-            # ウィンドウを中央に配置
-            progress_window.update_idletasks()
-            x = self.root.winfo_rootx() + (self.root.winfo_width() - progress_window.winfo_width()) // 2
-            y = self.root.winfo_rooty() + (self.root.winfo_height() - progress_window.winfo_height()) // 2
-            progress_window.geometry(f"+{x}+{y}")
-                
-            # 統合解析レポート用の情報
-            all_classes = []
-            all_functions = []
-            all_dependencies = {}
-            all_inheritance = {}
-            
-            # ディレクトリ構造を取得
-            directory_structure = self.get_directory_structure(python_files)
-                
-            # Step 1: 各ファイルを個別に解析する
-            for i, file_path in enumerate(python_files):
-                try:
-                    # プログレス更新
-                    progress_pct = (i / len(python_files)) * 100
-                    progress_bar["value"] = progress_pct
-                    progress_label.config(text=f"ファイルを解析中... ({i+1}/{len(python_files)}): {os.path.basename(file_path)}")
-                    progress_window.update()
-                    
-                    # ファイルを読み込む（BOM除去対応）
-                    with open(file_path, 'r', encoding='utf-8-sig') as file:
-                        code = file.read()
-
-                    # 有効なPythonコードかどうか事前チェック（日本語メモファイル等を除外）
-                    try:
-                        compile(code, file_path, 'exec')
-                    except SyntaxError:
-                        print(f"スキップ（構文エラー）: {file_path}")
-                        continue
-
-                    # ファイル文字数を取得
-                    file_char_count = len(code)
-
-                    # astroidでモジュールをパース
-                    module = astroid.parse(code)
-                    module_name = os.path.basename(file_path).replace('.py', '')
-                    module_nodes[module_name] = module
-                    
-                    # ファイル個別の解析結果を取得
-                    self.astroid_analyzer.reset()
-                    file_result, _ = self.astroid_analyzer.analyze_code(code, os.path.basename(file_path))
-                    
-                    # 結果を蓄積
-                    analysis_results[file_path] = {
-                        'name': os.path.basename(file_path),
-                        'classes': self.astroid_analyzer.classes.copy(),
-                        'functions': self.astroid_analyzer.functions.copy(),
-                        'dependencies': self.astroid_analyzer.dependencies.copy(),
-                        'inheritance': self.astroid_analyzer.inheritance.copy(),
-                        'char_count': file_char_count  # 文字数を追加
-                    }
-                    
-                    # データベースにタイムスタンプを更新
-                    self.code_database.update_file_timestamp(file_path)
-                    
-                    # 全体のリストに追加
-                    all_classes.extend(self.astroid_analyzer.classes)
-                    all_functions.extend(self.astroid_analyzer.functions)
-                    all_dependencies.update(self.astroid_analyzer.dependencies)
-                    all_inheritance.update(self.astroid_analyzer.inheritance)
-                    
-                except Exception as e:
-                    print(f"ファイル {file_path} の解析中にエラー: {e}")
-                    traceback.print_exc()
-            
-            # プログレスウィンドウを閉じる
-            progress_window.destroy()
-            
-            # 依存関係をフィルタリング
-            SKIP_DEPENDENCIES = {
-                'print', 'len', 'str', 'int', 'float', 'list', 'dict', 'set', 'tuple',
-                'open', 'range', 'enumerate', 'zip', 'map', 'filter',
-                'os.path.join', 'os.path.exists', 'os.path.basename', 'os.path.dirname',
-                'logging.info', 'logging.debug', 'logging.warning', 'logging.error'
-            }
-            
-            # 依存関係をフィルタリング
-            filtered_dependencies = {}
-            for caller, callees in all_dependencies.items():
-                filtered_callees = {callee for callee in callees if callee not in SKIP_DEPENDENCIES}
-                if filtered_callees:  # 空でない場合のみ追加
-                    filtered_dependencies[caller] = filtered_callees
-            
-            # フィルタリングした依存関係を使用
-            all_dependencies = filtered_dependencies
-            
-            # 統合レポートの生成 - ファイル文字数情報を含める
-            report = "# プロジェクト全体の拡張解析レポート\n\n"
-            
-            # LLM向け構造化データの出力
-            report += "## LLM向け構造化データ\n"
-            report += "```\n"
-            
-            # ディレクトリ構造を冒頭に挿入
-            report += "# ディレクトリ構造\n"
-            report += directory_structure
-            report += "\n"
-            
-            # ファイル文字数情報を追加
-            report += "# ファイル文字数\n"
-            for file_path, result in analysis_results.items():
-                file_name = os.path.basename(file_path)
-                char_count = result.get('char_count', 0)
-                report += f"{file_name}: {char_count:,} 文字\n"
-            report += "\n"
-            
-            # コンパクトなフォーマットでデータを出力
-            compact_data = "# クラス一覧\n"
-            for cls in all_classes:
-                base_info = f" <- {', '.join(cls['base_classes'])}" if cls['base_classes'] else ""
-                file_info = next((os.path.basename(f) for f, r in analysis_results.items() 
-                              if any(c["name"] == cls["name"] for c in r["classes"])), "unknown")
-                compact_data += f"{cls['name']}{base_info} ({file_info})\n"
-                
-                if cls['methods']:
-                    compact_data += "  メソッド:\n"
-                    for m in cls['methods']:
-                        params = ", ".join(p['name'] for p in m['parameters'])
-                        ret_type = f" -> {m['return_type']}" if m['return_type'] and m['return_type'] != "unknown" else ""
-                        compact_data += f"    {m['name']}({params}){ret_type}\n"
-                compact_data += "\n"
-
-            compact_data += "# 関数一覧\n"
-            for func in all_functions:
-                params = ", ".join(p['name'] for p in func['parameters'])
-                ret_type = f" -> {func['return_type']}" if func['return_type'] and func['return_type'] != "unknown" else ""
-                file_info = next((os.path.basename(f) for f, r in analysis_results.items() 
-                              if any(fn["name"] == func["name"] for fn in r["functions"])), "unknown")
-                compact_data += f"{func['name']}({params}){ret_type} ({file_info})\n"
-            compact_data += "\n"
-
-            # 主要な関数の依存関係を表示
-            if all_dependencies:
-                compact_data += "# 主要な関数依存関係\n"
-                # 依存の多いもの順に表示
-                important_dependencies = sorted([(k, v) for k, v in all_dependencies.items() if v], 
-                                            key=lambda x: len(x[1]), reverse=True)[:10]
-                for caller, callees in important_dependencies:
-                    compact_data += f"{caller} -> {', '.join(callees)}\n"
-                compact_data += "\n"
-            
-            # コールグラフの生成と追加
-            call_graph_text = generate_call_graph(python_files)
-            compact_data += call_graph_text
-            
-            report += compact_data
-            report += "```\n"
-            
-            # 拡張解析の結果を表示
-            self.extended_text.delete(1.0, tk.END)
-            self.extended_text.insert(tk.END, report)
-            self.extended_highlighter.highlight()
-            
-            # 現在表示されているタブが拡張解析タブの場合のみ文字数を更新
-            current_tab_index = self.tab_control.index(self.tab_control.select())
-            if current_tab_index == 1:  # 拡張解析タブ
-                char_count = len(report)
-                self.char_count_label.config(text=_("ui.status.char_count_value", "文字数: {0}").format(char_count))
-            
-            # JSON出力を生成（拡張解析の後に呼び出し）
-            self.generate_json_output()
-            
-            # マーメードダイアグラムを生成
-            self.generate_mermaid_output()
-            
-        except ImportError:
-            self.extended_text.delete(1.0, tk.END)
-            self.extended_text.insert(tk.END, "astroidライブラリがインストールされていません。\n"
-                                    "pip install astroid でインストールしてください。")
-        except Exception as e:
-            self.extended_text.delete(1.0, tk.END)
-            error_msg = f"拡張解析中にエラーが発生しました:\n{str(e)}"
-            print(error_msg)
-            traceback.print_exc()
-            self.extended_text.insert(tk.END, error_msg)
+        """astroidによる拡張解析を実行する（AnalysisHandlerに委譲）"""
+        self.analysis_handler.perform_extended_analysis(python_files)
 
     def generate_json_output(self):
         """現在の解析結果からJSON出力を生成してJSONタブに表示する"""
@@ -2431,61 +2143,5 @@ class MainWindow:
             return False, 0
 
     def reanalyze_project(self):
-        """プロジェクト全体を再分析"""
-        try:
-            # 確認ダイアログ
-            if not messagebox.askyesno(_("確認"), 
-                _("プロジェクト全体を再分析します。この処理には時間がかかる場合があります。続行しますか？")):
-                return
-            
-            # 進捗ダイアログ
-            progress_window = tk.Toplevel(self.root)
-            progress_window.title(_("プロジェクト再分析"))
-            progress_window.transient(self.root)
-            progress_window.geometry("400x150")
-            progress_window.resizable(False, False)
-            
-            progress_label = ttk.Label(progress_window, text=_("データベースをリセットしています..."))
-            progress_label.pack(pady=10)
-            
-            progress_bar = ttk.Progressbar(progress_window, mode="determinate")
-            progress_bar.pack(fill="x", padx=20, pady=10)
-            
-            # データベースをリセット
-            self.code_database.connection.execute("DELETE FROM code_snippets")
-            self.code_database.connection.commit()
-            
-            # プロジェクトファイルの一覧取得
-            files = []
-            if hasattr(self, "directory_tree") and self.directory_tree:
-                files = self.directory_tree.get_included_files()
-            
-            # 進捗計算
-            total_files = len(files)
-            progress_bar["maximum"] = total_files
-            
-            # ファイルを再分析
-            file_count = 0
-            extractor = CodeExtractor(self.code_database)
-            
-            for file_path in files:
-                file_count += 1
-                progress_label.config(text=f"分析中: {os.path.basename(file_path)}")
-                progress_bar["value"] = file_count
-                progress_window.update()
-                
-                extractor.extract_from_file(file_path)
-                
-            progress_window.destroy()
-            messagebox.showinfo(_("完了"), 
-                _(f"プロジェクト再分析が完了しました。\n処理されたファイル: {file_count}個"))
-            
-            # 現在のファイルを再分析
-            if hasattr(self, "current_file") and self.current_file:
-                self.analyze_file(self.current_file)
-                
-        except Exception as e:
-            print(f"プロジェクト再分析エラー: {str(e)}")
-            traceback.print_exc()
-            messagebox.showerror(_("エラー"), 
-                _(f"再分析中にエラーが発生しました:\n{str(e)}"))
+        """プロジェクト全体を再分析（AnalysisHandlerに委譲）"""
+        self.analysis_handler.reanalyze_project()
